@@ -15,8 +15,23 @@ export default function Panels() {
   const f = FOCUSES[focus];
   const filter = useJourney((s) => s.filter);
 
+  const marks = [
+    { id: "projects", jp: "作", title: "Works", note: `${projects.length} peaks` },
+    { id: "skills", jp: "技", title: "Craft", note: `${Object.keys(skills).length} groves` },
+    { id: "recognition", jp: "賞", title: "Honours", note: `${achievements.length} wins · ${certifications.length} certs` },
+  ];
+
   return (
     <>
+      {marks.map((m) => (
+        <div key={m.id} className={`mark${f.station === m.id ? " on" : ""}`} aria-hidden>
+          <span className="kanji">{m.jp}</span>
+          <span className="cap">
+            <b>{m.title}</b>
+            <span className="mono">{m.note.toUpperCase()}</span>
+          </span>
+        </div>
+      ))}
       {/* Projects: one card per project, stacked in the same grid cell and cross-faded */}
       <aside className={`panel${f.station === "projects" ? " on" : ""}`} aria-label="Project details" inert={f.station !== "projects"}>
         <div className="stack-cells">

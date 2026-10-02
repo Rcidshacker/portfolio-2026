@@ -15,6 +15,7 @@
   --seal: #b4161f;
   --seal-soft: rgba(180, 22, 31, 0.1);
   --plaque: rgba(244, 236, 215, 0.9);
+  --plaque-solid: rgba(244, 236, 215, 0.97);
   --gold: #8a6a3b;
   --grain: 0.5;
 }
@@ -30,6 +31,7 @@
   --seal: #e0453f;
   --seal-soft: rgba(224, 69, 63, 0.14);
   --plaque: rgba(14, 17, 21, 0.88);
+  --plaque-solid: rgba(14, 17, 21, 0.97);
   --gold: #c4a46a;
   --grain: 0.25;
 }
@@ -45,7 +47,7 @@ html[data-theme="ink"] {
 body {
   background: var(--paper);
   color: var(--ink);
-  font-family: var(--font-noto), "Noto Sans JP", system-ui, sans-serif;
+  font-family: var(--font-sans), "Noto Sans JP", system-ui, sans-serif;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   transition: background-color 0.9s ease, color 0.9s ease;

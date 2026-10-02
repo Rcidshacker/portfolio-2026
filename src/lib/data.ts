@@ -7,9 +7,9 @@ export const personalInfo = {
   github: "https://github.com/Rcidshacker",
   linkedin: "https://linkedin.com/in/ruchit-das-3b6a8a252",
   about: [
-    "Computer Engineering student specializing in AIML, with a practical focus on building AI-powered systems — multi-agent pipelines, RAG architectures, and ML integrations that actually ship.",
+    "Computer Engineering graduate specializing in AIML, with a practical focus on building AI-powered systems — multi-agent pipelines, RAG architectures, and ML integrations that actually ship.",
     "I care more about how systems are designed than how they're described. Most of what I build starts from a real problem and ends with something running — locally, in Docker, or behind an API.",
-    "Advanced to the Top 3 at IIT Bombay's eIPL with FarmAI, and reached national finalist stage at eYIC with Mitihar. Currently finishing B.Tech and looking for AI Engineer roles at teams building with LLMs in production.",
+    "Advanced to the Top 3 at IIT Bombay's eIPL with FarmAI, and reached national finalist stage at eYIC with Mitihar. B.Tech graduate, now looking for AI Engineer roles at teams building with LLMs in production.",
   ],
 };
 

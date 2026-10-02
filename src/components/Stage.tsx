@@ -1,8 +1,5 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import Lenis from "lenis";
-import gsap from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { createWorld, type WorldClient } from "@/lib/shanshui/client";
 import { PAD, SEG, type Baked } from "@/lib/shanshui/core";
 import { BANDS, BAND_FACTOR, type Band, type EntityMeta, type Quality } from "@/lib/shanshui/world";
@@ -12,7 +9,7 @@ import { emitFrame, frame, journey, useJourney } from "@/lib/journey";
 import { projectPeaks } from "@/lib/stations";
 import Birds from "./Birds";
 
-gsap.registerPlugin(ScrollTrigger);
+const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 
 /** Far bands are soft anyway, so bake them smaller: less memory, same look. */
 const BAKE_QUALITY: Record<Band, number> = { far: 0.6, mid: 0.8, near: 1, front: 1 };
@@ -24,7 +21,7 @@ const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
 /** Seed comes from ?seed=; digits only, so nothing but a number ever reaches the generator. */
 function readSeed() {
   const q = new URLSearchParams(window.location.search).get("seed");
-  const n = q !== null && /^d{1,9}$/.test(q) ? parseInt(q, 10) : NaN;
+  const n = q !== null && /^\d{1,9}$/.test(q) ? parseInt(q, 10) : NaN;
   return Number.isFinite(n) ? n : 7;
 }
 
@@ -36,7 +33,8 @@ export default function Stage({ children }: { children: ReactNode }) {
   const segHost = useRef<Record<Band, HTMLDivElement | null>>({ far: null, mid: null, near: null, front: null });
   const sunRef = useRef<HTMLDivElement>(null);
 
-  const [dims, setDims] = useState({ vw: 1440, vh: 900, dpr: 1 });
+  // `m` flips once the real viewport is read, so the world is built once at the right scale (not at the 1440x900 guess first)
+  const [dims, setDims] = useState({ vw: 1440, vh: 900, dpr: 1, m: false });
   const [live, setLive] = useState<{ meta: EntityMeta; svg: string }[]>([]);
   const [seed] = useState(() => (typeof window === "undefined" ? 7 : readSeed()));
   const focusIdx = useJourney((st) => st.focus);
@@ -57,8 +55,8 @@ export default function Stage({ children }: { children: ReactNode }) {
         const vh = stageRef.current?.clientHeight || window.innerHeight;
         const vw = window.innerWidth;
         // ignore mobile URL-bar height jitter
-        if (vw === d.vw && Math.abs(vh - d.vh) < 80) return d;
-        return { vw, vh, dpr: Math.min(window.devicePixelRatio || 1, 1.5) };
+        if (d.m && vw === d.vw && Math.abs(vh - d.vh) < 80) return d;
+        return { vw, vh, dpr: Math.min(window.devicePixelRatio || 1, 1.5), m: true };
       });
     read();
     let t: ReturnType<typeof setTimeout>;
@@ -72,6 +70,7 @@ export default function Stage({ children }: { children: ReactNode }) {
   const goTo = useRef<(i: number) => void>(() => {});
 
   useEffect(() => {
+    if (!dims.m) return;
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const quality: Quality = dims.vw < 700 || (navigator.hardwareConcurrency || 8) <= 4 ? 1 : 2;
     const world = createWorld(seed, quality);
@@ -167,10 +166,8 @@ export default function Stage({ children }: { children: ReactNode }) {
     };
 
     // ── scroll + camera ──
-    // Lenis only animates scrollTo here; wheel, swipe and keys become one-stop steps below.
-    const lenis = reduced ? null : new Lenis({ smoothWheel: false, syncTouch: false });
-    lenis?.on("scroll", ScrollTrigger.update);
-    gsap.ticker.lagSmoothing(0);
+    // Wheel, swipe and keys become one-stop steps below; a stop is reached by tweening the native scroll position.
+    let tween: { from: number; to: number; t0: number; dur: number } | null = null;
 
     const pointer = { x: 0, y: 0 };
     const onPointer = (e: PointerEvent) => {
@@ -187,9 +184,21 @@ export default function Stage({ children }: { children: ReactNode }) {
     let lastBucket = -1;
 
     frame.camX = camera.at(0);
-    const tick = (_t: number, dt: number) => {
-      lenis?.raf(performance.now());
-      const y = lenis ? lenis.scroll : window.scrollY;
+    let prevT = performance.now();
+    let curY = window.scrollY;
+    let raf = 0;
+    const tick = (now: number) => {
+      raf = requestAnimationFrame(tick);
+      const dt = now - prevT;
+      prevT = now;
+      let y: number;
+      if (tween) {
+        const k = clamp((now - tween.t0) / tween.dur, 0, 1);
+        y = tween.from + (tween.to - tween.from) * easeInOut(k);
+        window.scrollTo(0, y); // keep the real scroll position in step; the camera reads the unrounded value
+        if (k === 1) tween = null;
+      } else y = window.scrollY;
+      curY = y;
       const p = clamp((y - top()) / scrollLen, 0, 1);
       frame.progress = p;
       const target = camera.at(p);
@@ -225,7 +234,7 @@ export default function Stage({ children }: { children: ReactNode }) {
       }
       emitFrame();
     };
-    gsap.ticker.add(tick);
+    raf = requestAnimationFrame(tick);
 
     // ── snap navigation: every gesture moves exactly one stop ──
     let at = 0; // stop we are on, or travelling to
@@ -237,9 +246,8 @@ export default function Stage({ children }: { children: ReactNode }) {
       const y = top() + camera.progressOf(i) * scrollLen;
       const dur = clamp(0.8 + dist / 3200, 0.9, 1.7);
       lockUntil = performance.now() + dur * 800;
-      if (lenis) {
-        lenis.scrollTo(y, { duration: dur, force: true, easing: (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2) });
-      } else window.scrollTo({ top: y });
+      if (reduced) window.scrollTo({ top: y });
+      else tween = { from: curY, to: y, t0: performance.now(), dur: dur * 1000 };
     };
     const step = (dir: 1 | -1) => go(nextVisible(at, dir, journey.get().filter));
     goTo.current = go;
@@ -316,8 +324,7 @@ export default function Stage({ children }: { children: ReactNode }) {
     ensureSegments();
     return () => {
       alive = false;
-      gsap.ticker.remove(tick);
-      lenis?.destroy();
+      cancelAnimationFrame(raf);
       window.removeEventListener("pointermove", onPointer);
       window.removeEventListener("wheel", onWheel);
       window.removeEventListener("touchstart", onTouchStart);
@@ -329,7 +336,7 @@ export default function Stage({ children }: { children: ReactNode }) {
       worldRef.current = null;
     };
     // The world is rebuilt when the viewport scale changes; cheap (plan ~50 ms) and keeps one code path.
-  }, [camera, scrollLen, s, vwUnits, dims.vw, dims.vh, dims.dpr, seed]);
+  }, [camera, scrollLen, s, vwUnits, dims.m, dims.vw, dims.vh, dims.dpr, seed]);
 
   // Highlight copy of the peak the camera rests on (or the pointer is over): same strokes drawn again, darker, with a glow.
   useEffect(() => {

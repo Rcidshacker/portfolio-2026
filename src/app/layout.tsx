@@ -1,12 +1,15 @@
 import type { Metadata, Viewport } from "next";
-import { Noto_Sans_JP, IBM_Plex_Mono, Shippori_Mincho_B1 } from "next/font/google";
+import { Source_Sans_3, IBM_Plex_Mono, Shippori_Mincho_B1 } from "next/font/google";
 import "./globals.css";
 import "./stations.css";
 import "./panels.css";
 
-const notoSans = Noto_Sans_JP({ subsets: ["latin"], variable: "--font-noto", weight: ["300", "400", "500"], display: "swap" });
+// Body copy is Latin only (Noto Sans JP's Latin glyphs are Source Sans), so one small variable font replaces
+// a family that shipped ~370 CJK font-face rules. Mincho keeps its kanji, but its ~120 slices per weight are
+// fetched on demand (preload: false) instead of all being preloaded, and only the weights the CSS uses.
+const sans = Source_Sans_3({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
 const ibmMono = IBM_Plex_Mono({ subsets: ["latin"], variable: "--font-mono", weight: ["300", "400", "500"], display: "swap" });
-const mincho = Shippori_Mincho_B1({ subsets: ["latin"], variable: "--font-mincho", weight: ["400", "500", "600", "700", "800"], display: "swap" });
+const mincho = Shippori_Mincho_B1({ subsets: ["latin"], variable: "--font-mincho", weight: ["400", "700"], display: "swap", preload: false });
 
 export const metadata: Metadata = {
   title: "Ruchit Das — AI Engineer",
@@ -30,7 +33,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body className={`${notoSans.variable} ${ibmMono.variable} ${mincho.variable} antialiased`}>{children}</body>
+      <body className={`${sans.variable} ${ibmMono.variable} ${mincho.variable} antialiased`}>{children}</body>
     </html>
   );
 }

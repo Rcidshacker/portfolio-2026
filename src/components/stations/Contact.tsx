@@ -34,13 +34,6 @@ export default function Contact() {
             </span>
           </li>
         </ul>
-        <p className="credit mono">
-          Painting engine:{" "}
-          <a href="https://github.com/LingDong-/shan-shui-inf" target="_blank" rel="noopener noreferrer">
-            {"{Shan, Shui}*"}
-          </a>{" "}
-          by Lingdong Huang (MIT) · Icons: Aria Icons · © 2026 {personalInfo.name}
-        </p>
       </div>
     </At>
   );

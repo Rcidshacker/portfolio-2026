@@ -11,7 +11,7 @@ export default function Intro() {
 
   useEffect(() => {
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const t = setTimeout(() => setMinDone(true), reduced ? 0 : 1500);
+    const t = setTimeout(() => setMinDone(true), reduced ? 0 : 900);
     return () => clearTimeout(t);
   }, []);
   useEffect(() => {

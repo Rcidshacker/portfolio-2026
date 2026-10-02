@@ -128,7 +128,7 @@
   pointer-events: none;
 }
 .nav > * { pointer-events: auto; }
-.brand { display: inline-flex; align-items: center; gap: 0.6rem; font-family: var(--font-mincho), serif; font-weight: 600; letter-spacing: 0.02em; }
+.brand { display: inline-flex; align-items: center; gap: 0.6rem; font-family: var(--font-mincho), serif; font-weight: 700; letter-spacing: 0.02em; }
 .brand-name { font-size: 1.02rem; }
 .nav-links { display: flex; gap: 1.5rem; margin-left: auto; }
 .nav-links a { font-size: 0.64rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-dim); transition: color 0.25s; }
