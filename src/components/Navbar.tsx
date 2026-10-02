@@ -5,6 +5,7 @@ import { journey } from "@/lib/journey";
 import { personalInfo } from "@/lib/data";
 import { STATIONS } from "@/lib/stations";
 import { useStationId } from "./stations/At";
+import Icon from "./Icon";
 import ThemeToggle from "./ThemeToggle";
 
 const first = (station: string) => FOCUSES.findIndex((f) => f.station === station);
@@ -33,8 +34,7 @@ export default function Navbar() {
       <div className="nav-tools">
         <ThemeToggle />
         <button className="menu-btn" aria-expanded={open} aria-label="Menu" onClick={() => setOpen(!open)}>
-          <span />
-          <span />
+          <Icon name={open ? "close" : "menu"} size={17} />
         </button>
       </div>
     </header>

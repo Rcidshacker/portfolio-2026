@@ -6,7 +6,7 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { createWorld, type WorldClient } from "@/lib/shanshui/client";
 import { PAD, SEG, type Baked } from "@/lib/shanshui/core";
 import { BANDS, BAND_FACTOR, type Band, type EntityMeta, type Quality } from "@/lib/shanshui/world";
-import { FOCUSES, makeCamera } from "@/lib/camera";
+import { FOCUSES, makeCamera, nextVisible } from "@/lib/camera";
 import { WORLD_H, WORLD_W } from "@/lib/stations";
 import { emitFrame, frame, journey, useJourney } from "@/lib/journey";
 import { projectPeaks } from "@/lib/stations";
@@ -38,8 +38,7 @@ export default function Stage({ children }: { children: ReactNode }) {
 
   const [dims, setDims] = useState({ vw: 1440, vh: 900, dpr: 1 });
   const [live, setLive] = useState<{ meta: EntityMeta; svg: string }[]>([]);
-  const [seed, setSeed] = useState(() => (typeof window === "undefined" ? 7 : readSeed()));
-  const metaRef = useRef<EntityMeta[]>([]);
+  const [seed] = useState(() => (typeof window === "undefined" ? 7 : readSeed()));
   const focusIdx = useJourney((st) => st.focus);
   const hover = useJourney((st) => st.hover);
   const glow = hover >= 0 ? hover : (FOCUSES[focusIdx].project ?? -1);
@@ -47,7 +46,8 @@ export default function Stage({ children }: { children: ReactNode }) {
   const [glowSvg, setGlowSvg] = useState<{ i: number; svg: string } | null>(null);
   const s = dims.vh / WORLD_H;
   const vwUnits = Math.round(dims.vw / s / 20) * 20;
-  const camera = useMemo(() => makeCamera(vwUnits), [vwUnits]);
+  const narrow = dims.vw < 820;
+  const camera = useMemo(() => makeCamera(vwUnits, narrow), [vwUnits, narrow]);
   const scrollLen = camera.scrollLength(dims.vh);
 
   // ── viewport size ──────────────────────────────────────────────────────────
@@ -77,11 +77,8 @@ export default function Stage({ children }: { children: ReactNode }) {
     const world = createWorld(seed, quality);
     worldRef.current = world;
     let alive = true;
-    journey.set({ seed });
-    stageRef.current?.classList.add("swap");
 
     world.meta.then(async (meta) => {
-      metaRef.current = meta;
       const ids = meta.filter((m) => m.live).map((m) => m.id);
       const svgs = await world.svgs(ids);
       if (alive) setLive(meta.filter((m) => m.live).map((m) => ({ meta: m, svg: svgs[m.id] })));
@@ -141,7 +138,6 @@ export default function Stage({ children }: { children: ReactNode }) {
       if (!settled && alive && !inflight && !queued.size) {
         settled = true;
         journey.set({ ready: true });
-        stageRef.current?.classList.remove("swap");
       }
     };
 
@@ -171,7 +167,8 @@ export default function Stage({ children }: { children: ReactNode }) {
     };
 
     // ── scroll + camera ──
-    const lenis = reduced ? null : new Lenis({ lerp: 0.085, wheelMultiplier: 0.9 });
+    // Lenis only animates scrollTo here; wheel, swipe and keys become one-stop steps below.
+    const lenis = reduced ? null : new Lenis({ smoothWheel: false, syncTouch: false });
     lenis?.on("scroll", ScrollTrigger.update);
     gsap.ticker.lagSmoothing(0);
 
@@ -196,7 +193,7 @@ export default function Stage({ children }: { children: ReactNode }) {
       const p = clamp((y - top()) / scrollLen, 0, 1);
       frame.progress = p;
       const target = camera.at(p);
-      frame.camX += (target - frame.camX) * (reduced ? 1 : 1 - Math.exp((-dt / 1000) * 9));
+      frame.camX += (target - frame.camX) * (reduced ? 1 : 1 - Math.exp((-dt / 1000) * 16));
       if (Math.abs(target - frame.camX) < 0.02) frame.camX = target;
       frame.mx += (pointer.x - frame.mx) * 0.06;
       frame.my += (pointer.y - frame.my) * 0.06;
@@ -230,37 +227,68 @@ export default function Stage({ children }: { children: ReactNode }) {
     };
     gsap.ticker.add(tick);
 
-    goTo.current = (i: number) => {
+    // ── snap navigation: every gesture moves exactly one stop ──
+    let at = 0; // stop we are on, or travelling to
+    let lockUntil = 0;
+    const go = (i: number) => {
+      if (i < 0 || i >= FOCUSES.length) return;
+      const dist = Math.abs(camera.camOf(i) - camera.camOf(at));
+      at = i;
       const y = top() + camera.progressOf(i) * scrollLen;
-      if (lenis) lenis.scrollTo(y, { duration: 1.9, easing: (t) => 1 - Math.pow(1 - t, 4) });
-      else window.scrollTo({ top: y });
+      const dur = clamp(0.8 + dist / 3200, 0.9, 1.7);
+      lockUntil = performance.now() + dur * 800;
+      if (lenis) {
+        lenis.scrollTo(y, { duration: dur, force: true, easing: (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2) });
+      } else window.scrollTo({ top: y });
     };
-    journey.goTo = (i) => goTo.current(i);
+    const step = (dir: 1 | -1) => go(nextVisible(at, dir, journey.get().filter));
+    goTo.current = go;
+    journey.goTo = go;
 
-    journey.reroll = () => {
-      const next = Math.floor(Math.random() * 1e6);
-      window.history.replaceState(null, "", `?seed=${next}${window.location.hash}`);
-      setSeed(next);
+    let lastWheelT = 0;
+    let lastWheelAbs = 0;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const now = performance.now();
+      const mag = Math.abs(e.deltaY) > Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+      // a trackpad flick keeps firing for about a second: only a pause or a fresh, stronger push starts another step
+      const fresh = now - lastWheelT > 140 || Math.abs(mag) > lastWheelAbs * 1.6 + 6;
+      lastWheelT = now;
+      lastWheelAbs = Math.abs(mag);
+      if (now < lockUntil || !fresh || Math.abs(mag) < 4) return;
+      step(mag > 0 ? 1 : -1);
     };
-    journey.download = async () => {
-      // The current view as a standalone SVG (white page, like the original), every band at its own parallax offset.
-      const view = vwUnits;
-      const inView = metaRef.current.filter((m) => {
-        const x0 = frame.camX * BAND_FACTOR[m.band];
-        return m.x + m.hw * 1.15 + 80 > x0 && m.x - m.hw * 1.15 - 80 < x0 + view;
-      });
-      const svgs = await world.svgs(inView.map((m) => m.id));
-      const body = BANDS.map(
-        (b) => `<g transform="translate(${-(frame.camX * BAND_FACTOR[b]).toFixed(1)},0)">${inView.filter((m) => m.band === b).map((m) => svgs[m.id]).join("")}</g>`,
-      ).join("");
-      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${view}" height="${WORLD_H}" viewBox="0 0 ${view} ${WORLD_H}"><rect width="100%" height="100%" fill="#fff"/>${body}</svg>`;
-      const a = Object.assign(document.createElement("a"), {
-        href: URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" })),
-        download: `shan-shui-${seed}-${Math.round(frame.camX)}.svg`,
-      });
-      a.click();
-      URL.revokeObjectURL(a.href);
+    let touch: { x: number; y: number } | null = null;
+    const onTouchStart = (e: TouchEvent) => {
+      touch = { x: e.touches[0].clientX, y: e.touches[0].clientY };
     };
+    const onTouchEnd = (e: TouchEvent) => {
+      if (!touch) return;
+      const dx = touch.x - e.changedTouches[0].clientX;
+      const dy = touch.y - e.changedTouches[0].clientY;
+      touch = null;
+      const d = Math.abs(dy) > Math.abs(dx) ? dy : dx;
+      if (Math.abs(d) > 44 && performance.now() >= lockUntil) step(d > 0 ? 1 : -1);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const interactive = !!(e.target as HTMLElement).closest("button, a, input, select, textarea, [role=button]");
+      let dir: 1 | -1 | 0 = 0;
+      if (["ArrowRight", "ArrowDown", "PageDown"].includes(e.key)) dir = 1;
+      else if (["ArrowLeft", "ArrowUp", "PageUp"].includes(e.key)) dir = -1;
+      else if (e.key === " " && !interactive) dir = e.shiftKey ? -1 : 1;
+      if (dir) {
+        e.preventDefault();
+        if (performance.now() >= lockUntil) step(dir);
+      } else if (e.key === "Home" || e.key === "End") {
+        e.preventDefault();
+        go(e.key === "Home" ? 0 : FOCUSES.length - 1);
+      }
+    };
+    window.addEventListener("wheel", onWheel, { passive: false });
+    window.addEventListener("touchstart", onTouchStart, { passive: true });
+    window.addEventListener("touchend", onTouchEnd, { passive: true });
+    window.addEventListener("keydown", onKey);
 
     // Keyboard focus can land on an off-screen station: bring the camera to it instead of letting overflow scroll.
     const stage = stageRef.current;
@@ -272,7 +300,7 @@ export default function Stage({ children }: { children: ReactNode }) {
       const el = (e.target as HTMLElement).closest<HTMLElement>("[data-focus]");
       const id = el?.dataset.focus;
       const i = FOCUSES.findIndex((f) => f.id === id);
-      if (i >= 0 && i !== lastFocus) goTo.current(i);
+      if (i >= 0 && i !== at) go(i);
     };
     const near = nearRef.current;
     near?.addEventListener("focusin", onFocusIn);
@@ -280,7 +308,10 @@ export default function Stage({ children }: { children: ReactNode }) {
     // jump to a station named in the URL hash, e.g. /#projects
     const hash = window.location.hash.slice(1);
     const hi = FOCUSES.findIndex((f) => f.station === hash);
-    if (hi > 0) window.scrollTo({ top: top() + camera.progressOf(hi) * scrollLen });
+    if (hi > 0) {
+      at = hi;
+      window.scrollTo({ top: top() + camera.progressOf(hi) * scrollLen });
+    }
 
     ensureSegments();
     return () => {
@@ -288,6 +319,10 @@ export default function Stage({ children }: { children: ReactNode }) {
       gsap.ticker.remove(tick);
       lenis?.destroy();
       window.removeEventListener("pointermove", onPointer);
+      window.removeEventListener("wheel", onWheel);
+      window.removeEventListener("touchstart", onTouchStart);
+      window.removeEventListener("touchend", onTouchEnd);
+      window.removeEventListener("keydown", onKey);
       near?.removeEventListener("focusin", onFocusIn);
       segEls.forEach((el) => el.remove());
       world.dispose();

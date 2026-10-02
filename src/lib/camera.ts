@@ -1,49 +1,67 @@
+import { projects } from "./data";
 import { STATIONS, WORLD_H, WORLD_W, projectPeaks } from "./stations";
 
 /** Scroll pixels per screen pixel of near-band travel. <1 means the painting moves faster than the page scrolls. */
 export const SCROLL_RATIO = 0.42;
-/** Time spent holding on each stop, in world units of travel. */
-const DWELL = 480;
+/** Flat stretch of scroll around each stop; the snap point is its centre. */
+const DWELL = 240;
 
 export interface Focus {
   id: string;
   /** Station this stop belongs to. */
   station: string;
-  /** World x to centre in the viewport. */
+  /** World x to bring into view. */
   x: number;
+  /** Where on screen (0..1 from the left) the stop's x lands. Side-panel stops sit left of centre. */
+  anchor: number;
   /** Project index when the stop is a project peak. */
   project?: number;
 }
 
+const SIDE = 0.3;
+const SIDE_STATIONS = new Set(["skills", "recognition"]);
+
 /** Ordered stops: every station, with the projects station expanded into one stop per peak. */
 export const FOCUSES: Focus[] = STATIONS.flatMap<Focus>((s) =>
   s.id === "projects"
-    ? projectPeaks.map((p) => ({ id: `project-${p.index}`, station: "projects", x: p.x, project: p.index }))
-    : [{ id: s.id, station: s.id, x: s.x }],
+    ? projectPeaks.map((p) => ({ id: `project-${p.index}`, station: "projects", x: p.x, anchor: SIDE, project: p.index }))
+    : [{ id: s.id, station: s.id, x: s.x, anchor: SIDE_STATIONS.has(s.id) ? SIDE : 0.5 }],
 );
+
+/** A project stop is skipped while a category filter hides it; every other stop is always visible. */
+export function isVisibleFocus(i: number, filter: string) {
+  const p = FOCUSES[i].project;
+  return p === undefined || filter === "All" || projects[p].category === filter;
+}
+
+/** Nearest visible stop in a direction, or -1 at the ends. */
+export function nextVisible(from: number, dir: 1 | -1, filter: string) {
+  for (let i = from + dir; i >= 0 && i < FOCUSES.length; i += dir) if (isVisibleFocus(i, filter)) return i;
+  return -1;
+}
 
 const smooth = (t: number) => t * t * (3 - 2 * t);
 
 export interface Camera {
-  /** Largest camera x (left edge of the viewport, world units). */
-  camMax: number;
-  /** Camera x for scroll progress 0..1. */
+  /** Camera x (left edge of the viewport, world units) for scroll progress 0..1. */
   at(progress: number): number;
-  /** Scroll progress at which focus i is centred (start of its dwell). */
+  /** Camera x at the snap point of stop i. */
+  camOf(i: number): number;
+  /** Scroll progress of the snap point of stop i. */
   progressOf(i: number): number;
-  /** Index of the focus the camera is at or travelling toward, for progress 0..1. */
+  /** Stop whose snap point is closest to this progress. */
   focusAt(progress: number): number;
   /** Total scroll distance for a viewport of the given pixel height. */
   scrollLength(vh: number): number;
 }
 
-/** @param vw viewport width in world units (vh px = WORLD_H units). */
-export function makeCamera(vw: number): Camera {
+/** @param vw viewport width in world units (vh px = WORLD_H units); narrow viewports centre every stop. */
+export function makeCamera(vw: number, narrow = false): Camera {
   const camMax = Math.max(0, WORLD_W - vw);
-  const cams = FOCUSES.map((f) => Math.min(camMax, Math.max(0, f.x - vw / 2)));
+  const cams = FOCUSES.map((f) => Math.min(camMax, Math.max(0, f.x - vw * (narrow ? 0.5 : f.anchor))));
 
   // Timeline in weight units: [dwell_0][travel_0->1][dwell_1]...
-  const start: number[] = []; // weight where dwell i begins
+  const start: number[] = [];
   let w = 0;
   for (let i = 0; i < cams.length; i++) {
     start.push(w);
@@ -51,22 +69,15 @@ export function makeCamera(vw: number): Camera {
     if (i < cams.length - 1) w += Math.abs(cams[i + 1] - cams[i]);
   }
   const total = w;
+  const mid = (i: number) => (start[i] + DWELL / 2) / total;
 
   return {
-    camMax,
-    progressOf: (i) => start[i] / total,
+    camOf: (i) => cams[i],
+    progressOf: mid,
     focusAt(p) {
-      const wt = p * total;
-      let i = 0;
-      for (let k = 0; k < cams.length; k++) {
-        // switch to the next focus halfway through the travel toward it
-        const next = k + 1 < cams.length ? start[k + 1] - (start[k + 1] - (start[k] + DWELL)) / 2 : Infinity;
-        if (wt < next) {
-          i = k;
-          break;
-        }
-      }
-      return i;
+      let best = 0;
+      for (let i = 1; i < cams.length; i++) if (Math.abs(p - mid(i)) < Math.abs(p - mid(best))) best = i;
+      return best;
     },
     at(p) {
       const wt = Math.min(total, Math.max(0, p * total));
@@ -78,7 +89,6 @@ export function makeCamera(vw: number): Camera {
       }
       return cams[cams.length - 1];
     },
-    // Scroll length so near-band screen travel stays comparable at any viewport size.
     scrollLength: (vh) => total * (vh / WORLD_H) * SCROLL_RATIO,
   };
 }

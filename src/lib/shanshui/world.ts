@@ -135,10 +135,10 @@ export function planWorld(seed: number, quality: Quality = 2): Planned[] {
   flat("near", "gap-proj-skills-flat", lastPeak + 1500, 690, 900);
 
   const skills = stationById("skills").x;
-  flat("near", "skills-ground", skills, 690, 1900, 60);
+  flat("near", "skills-ground", skills, 690, 1300, 60);
   const grove = [Tree.tree01, Tree.tree03, Tree.tree05, Tree.tree08, Tree.tree04];
   grove.forEach((fn, k) => {
-    const x = skills + (k - 2) * 340;
+    const x = skills + (k - 2) * 150;
     add("near", "tree", `skill-tree-${k}`, x, 640, 90, () => fn(x, 640, { hei: [190, 120, 260, 150, 130][k] }), { skill: k });
   });
 

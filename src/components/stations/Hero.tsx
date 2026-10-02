@@ -2,6 +2,7 @@
 import { personalInfo } from "@/lib/data";
 import { stationById } from "@/lib/stations";
 import { journey } from "@/lib/journey";
+import Icon from "../Icon";
 import { At } from "./At";
 
 const SEALS = [
@@ -33,7 +34,7 @@ export default function Hero() {
         ))}
       </ul>
       <button className="begin reveal" style={{ ["--i" as string]: 7 }} onClick={() => journey.goTo(1)}>
-        Begin the journey <span aria-hidden>→</span>
+        Begin the journey <Icon name="arrowRight" size={16} />
       </button>
     </At>
   );

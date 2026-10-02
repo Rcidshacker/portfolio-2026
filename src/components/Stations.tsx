@@ -1,20 +1,16 @@
 import Hero from "./stations/Hero";
 import About from "./stations/About";
-import Projects from "./stations/Projects";
-import Skills from "./stations/Skills";
-import Recognition from "./stations/Recognition";
-import Contact, { Credit } from "./stations/Contact";
+import Peaks from "./stations/Peaks";
+import Contact from "./stations/Contact";
 
+/** In-world content. Projects, skills and recognition are shown in the side panels (Panels.tsx). */
 export default function Stations() {
   return (
     <>
       <Hero />
       <About />
-      <Projects />
-      <Skills />
-      <Recognition />
+      <Peaks />
       <Contact />
-      <Credit />
     </>
   );
 }

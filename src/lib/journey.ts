@@ -9,10 +9,9 @@ interface State {
   filter: string;
   /** Project index under the pointer or keyboard focus, -1 for none. */
   hover: number;
-  seed: number;
 }
 
-const initial: State = { focus: 0, ready: false, filter: "All", hover: -1, seed: 7 };
+const initial: State = { focus: 0, ready: false, filter: "All", hover: -1 };
 let state: State = initial;
 const subs = new Set<() => void>();
 
@@ -44,9 +43,6 @@ export const journey = {
   get: () => state,
   /** Registered by the stage; jumps the page scroll to a focus index. */
   goTo: noop1 as (index: number) => void,
-  /** Registered by the stage: new random world / export the current view as SVG. */
-  reroll: () => {},
-  download: () => {},
 };
 
 export function useJourney<T>(select: (s: State) => T): T {

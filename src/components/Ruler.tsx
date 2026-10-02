@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useRef } from "react";
-import { FOCUSES, makeCamera } from "@/lib/camera";
+import { FOCUSES, isVisibleFocus, makeCamera } from "@/lib/camera";
 import { frame, journey, onFrame, useJourney } from "@/lib/journey";
 import { projects } from "@/lib/data";
 import { STATIONS } from "@/lib/stations";
@@ -9,10 +9,11 @@ import { STATIONS } from "@/lib/stations";
 export default function Ruler() {
   const ready = useJourney((s) => s.ready);
   const focus = useJourney((s) => s.focus);
+  const filter = useJourney((s) => s.filter);
   const dot = useRef<HTMLSpanElement>(null);
   const ticks = useMemo(() => {
     if (!ready) return [];
-    const cam = makeCamera(frame.vwUnits);
+    const cam = makeCamera(frame.vwUnits, window.innerWidth < 820);
     return FOCUSES.map((f, i) => ({ f, i, at: cam.progressOf(i) * 100 }));
   }, [ready]);
 
@@ -24,7 +25,7 @@ export default function Ruler() {
     <div className="ruler" role="group" aria-label="Journey progress">
       <p className="mono ruler-label" aria-live="polite">{label}</p>
       <div className="ruler-track">
-        {ticks.map(({ f, i, at }) => (
+        {ticks.filter(({ i }) => isVisibleFocus(i, filter)).map(({ f, i, at }) => (
           <button
             key={f.id}
             className={`tick${f.project === undefined ? " major" : ""}${i === focus ? " on" : ""}`}

@@ -6,7 +6,7 @@ import FilterBar from "@/components/FilterBar";
 import Intro from "@/components/Intro";
 import InkTrail from "@/components/InkTrail";
 import Petals from "@/components/Petals";
-import Tools from "@/components/Tools";
+import Panels from "@/components/Panels";
 
 export default function Home() {
   return (
@@ -18,9 +18,9 @@ export default function Home() {
           <Stations />
         </Stage>
       </main>
+      <Panels />
       <FilterBar />
       <Ruler />
-      <Tools />
       <Petals />
       <InkTrail />
     </>

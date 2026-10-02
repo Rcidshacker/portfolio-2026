@@ -1,5 +1,6 @@
 "use client";
 import { useSyncExternalStore } from "react";
+import Icon from "./Icon";
 
 /** The theme lives on <html data-theme>; read it as an external store so SSR and hydration agree. */
 const subscribe = (cb: () => void) => {
@@ -21,10 +22,7 @@ export default function ThemeToggle() {
   };
   return (
     <button className="theme-btn" onClick={flip} aria-pressed={ink} aria-label={ink ? "Switch to paper" : "Switch to night ink"} title={ink ? "Paper" : "Night ink"}>
-      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden>
-        <circle cx="12" cy="12" r="5.2" fill="currentColor" className="orb" />
-        <circle cx="16.2" cy="9.6" r="4.6" className="bite" />
-      </svg>
+      <Icon name={ink ? "sun" : "moon"} size={17} />
     </button>
   );
 }

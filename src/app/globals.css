@@ -198,3 +198,6 @@ body::before {
 @media (prefers-reduced-motion: reduce) {
   .live-tree, .live-boat, .mist { animation: none; }
 }
+
+/* One stop per gesture: the page never free-scrolls, so touch must not either. */
+html, body { overscroll-behavior: none; touch-action: none; }
