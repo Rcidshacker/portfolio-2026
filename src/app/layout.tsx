@@ -1,20 +1,10 @@
-import type { Metadata } from "next";
-import { Noto_Sans_JP, IBM_Plex_Mono } from "next/font/google";
+import type { Metadata, Viewport } from "next";
+import { Noto_Sans_JP, IBM_Plex_Mono, Shippori_Mincho_B1 } from "next/font/google";
 import "./globals.css";
 
-const notoSans = Noto_Sans_JP({
-  subsets: ["latin"],
-  variable: "--font-noto",
-  weight: ["300", "400", "500"],
-  display: "swap",
-});
-
-const ibmMono = IBM_Plex_Mono({
-  subsets: ["latin"],
-  variable: "--font-mono",
-  weight: ["300", "400", "500"],
-  display: "swap",
-});
+const notoSans = Noto_Sans_JP({ subsets: ["latin"], variable: "--font-noto", weight: ["300", "400", "500"], display: "swap" });
+const ibmMono = IBM_Plex_Mono({ subsets: ["latin"], variable: "--font-mono", weight: ["300", "400", "500"], display: "swap" });
+const mincho = Shippori_Mincho_B1({ subsets: ["latin"], variable: "--font-mincho", weight: ["400", "500", "600", "700", "800"], display: "swap" });
 
 export const metadata: Metadata = {
   title: "Ruchit Das — AI Engineer",
@@ -27,17 +17,18 @@ export const metadata: Metadata = {
   },
 };
 
+export const viewport: Viewport = { themeColor: "#f0e7d1" };
+
+// Runs before first paint so the saved theme never flashes.
+const themeScript = `try{var t=localStorage.getItem("theme");if(t==="ink")document.documentElement.dataset.theme="ink"}catch(e){}`;
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="dark scroll-smooth">
+    <html lang="en" suppressHydrationWarning>
       <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body className={`${notoSans.variable} ${ibmMono.variable} antialiased`}>
-        {children}
-      </body>
+      <body className={`${notoSans.variable} ${ibmMono.variable} ${mincho.variable} antialiased`}>{children}</body>
     </html>
   );
 }

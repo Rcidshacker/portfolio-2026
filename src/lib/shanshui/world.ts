@@ -75,7 +75,8 @@ export function planWorld(seed: number, quality: Quality = 2): Planned[] {
       ...extra,
       render: () => {
         setSeed(hash(seed, id));
-        return make(R(id)).replace(/NaN/g, "-1000");
+        // The original patched NaN to -1000, which draws long diagonal lines; drop those polylines instead.
+        return make(R(id)).replace(/<polyline[^>]*NaN[^>]*\/>/g, "");
       },
     });
   };
