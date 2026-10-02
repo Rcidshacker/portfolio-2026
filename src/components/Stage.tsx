@@ -8,7 +8,9 @@ import { PAD, SEG, type Baked } from "@/lib/shanshui/core";
 import { BANDS, BAND_FACTOR, type Band, type EntityMeta, type Quality } from "@/lib/shanshui/world";
 import { FOCUSES, makeCamera } from "@/lib/camera";
 import { WORLD_H, WORLD_W } from "@/lib/stations";
-import { emitFrame, frame, journey } from "@/lib/journey";
+import { emitFrame, frame, journey, useJourney } from "@/lib/journey";
+import { projectPeaks } from "@/lib/stations";
+import Birds from "./Birds";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -19,9 +21,10 @@ const MOUSE_DEPTH: Record<Band, number> = { far: -4, mid: -9, near: -16, front: 
 
 const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
 
+/** Seed comes from ?seed=; digits only, so nothing but a number ever reaches the generator. */
 function readSeed() {
   const q = new URLSearchParams(window.location.search).get("seed");
-  const n = q === null ? NaN : parseInt(q, 10);
+  const n = q !== null && /^d{1,9}$/.test(q) ? parseInt(q, 10) : NaN;
   return Number.isFinite(n) ? n : 7;
 }
 
@@ -35,6 +38,13 @@ export default function Stage({ children }: { children: ReactNode }) {
 
   const [dims, setDims] = useState({ vw: 1440, vh: 900, dpr: 1 });
   const [live, setLive] = useState<{ meta: EntityMeta; svg: string }[]>([]);
+  const [seed, setSeed] = useState(() => (typeof window === "undefined" ? 7 : readSeed()));
+  const metaRef = useRef<EntityMeta[]>([]);
+  const focusIdx = useJourney((st) => st.focus);
+  const hover = useJourney((st) => st.hover);
+  const glow = hover >= 0 ? hover : (FOCUSES[focusIdx].project ?? -1);
+  const [liveBucket, setLiveBucket] = useState(0);
+  const [glowSvg, setGlowSvg] = useState<{ i: number; svg: string } | null>(null);
   const s = dims.vh / WORLD_H;
   const vwUnits = Math.round(dims.vw / s / 20) * 20;
   const camera = useMemo(() => makeCamera(vwUnits), [vwUnits]);
@@ -64,11 +74,14 @@ export default function Stage({ children }: { children: ReactNode }) {
   useEffect(() => {
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const quality: Quality = dims.vw < 700 || (navigator.hardwareConcurrency || 8) <= 4 ? 1 : 2;
-    const world = createWorld(readSeed(), quality);
+    const world = createWorld(seed, quality);
     worldRef.current = world;
     let alive = true;
+    journey.set({ seed });
+    stageRef.current?.classList.add("swap");
 
     world.meta.then(async (meta) => {
+      metaRef.current = meta;
       const ids = meta.filter((m) => m.live).map((m) => m.id);
       const svgs = await world.svgs(ids);
       if (alive) setLive(meta.filter((m) => m.live).map((m) => ({ meta: m, svg: svgs[m.id] })));
@@ -89,11 +102,14 @@ export default function Stage({ children }: { children: ReactNode }) {
       const key = `${b}:${seg}`;
       const host = segHost.current[b];
       if (!alive || !host || !asked.has(key)) return (bmp as ImageBitmap).close?.();
-      const c = document.createElement("canvas");
-      c.width = bmp.width;
-      c.height = bmp.height;
-      c.getContext("2d")!.drawImage(bmp, 0, 0);
-      (bmp as ImageBitmap).close?.();
+      let c: HTMLCanvasElement;
+      if (bmp instanceof HTMLCanvasElement) c = bmp; // main-thread fallback already drew into a canvas
+      else {
+        c = document.createElement("canvas");
+        c.width = bmp.width;
+        c.height = bmp.height;
+        c.getContext("bitmaprenderer")!.transferFromImageBitmap(bmp); // zero-copy, GPU-resident
+      }
       c.style.cssText = `position:absolute;top:0;left:${(seg * SEG - PAD) * s}px;width:${(SEG + 2 * PAD) * s}px;height:${WORLD_H * s}px`;
       segEls.set(key, c);
       host.appendChild(c);
@@ -107,7 +123,10 @@ export default function Stage({ children }: { children: ReactNode }) {
         let bestD = Infinity;
         for (const [key, { b, seg }] of queued) {
           const d = Math.abs((seg + 0.5) * SEG - (frame.camX * BAND_FACTOR[b] + vwUnits / 2)) + (3 - BANDS.indexOf(b)) * 30;
-          if (d < bestD) (bestD = d, (best = key));
+          if (d < bestD) {
+            bestD = d;
+            best = key;
+          }
         }
         const { b, seg } = queued.get(best!)!;
         queued.delete(best!);
@@ -122,6 +141,7 @@ export default function Stage({ children }: { children: ReactNode }) {
       if (!settled && alive && !inflight && !queued.size) {
         settled = true;
         journey.set({ ready: true });
+        stageRef.current?.classList.remove("swap");
       }
     };
 
@@ -139,7 +159,11 @@ export default function Stage({ children }: { children: ReactNode }) {
         for (const [key, el] of segEls) {
           if (!key.startsWith(b + ":")) continue;
           const seg = +key.split(":")[1];
-          if (seg < a - 2 || seg > z + 2) (el.remove(), segEls.delete(key), asked.delete(key));
+          if (seg < a - 2 || seg > z + 2) {
+            el.remove();
+            segEls.delete(key);
+            asked.delete(key);
+          }
         }
       }
       for (const key of queued.keys()) if (!wanted.has(key)) queued.delete(key);
@@ -163,6 +187,7 @@ export default function Stage({ children }: { children: ReactNode }) {
     let lastCam = NaN;
     let lastMx = NaN;
     let lastFocus = -1;
+    let lastBucket = -1;
 
     frame.camX = camera.at(0);
     const tick = (_t: number, dt: number) => {
@@ -189,11 +214,17 @@ export default function Stage({ children }: { children: ReactNode }) {
           sunRef.current.style.transform = `translate3d(${(0.1 + u * 0.8) * dims.vw}px,${(0.16 + Math.sin(u * Math.PI) * -0.05) * dims.vh}px,0)`;
         }
         ensureSegments();
+        const bucket = Math.floor(frame.camX / 250);
+        if (bucket !== lastBucket) {
+          lastBucket = bucket;
+          setLiveBucket(bucket);
+        }
       }
       const f = camera.focusAt(p);
       if (f !== lastFocus) {
         lastFocus = f;
         journey.set({ focus: f });
+        document.documentElement.dataset.station = FOCUSES[f].station;
       }
       emitFrame();
     };
@@ -206,16 +237,45 @@ export default function Stage({ children }: { children: ReactNode }) {
     };
     journey.goTo = (i) => goTo.current(i);
 
+    journey.reroll = () => {
+      const next = Math.floor(Math.random() * 1e6);
+      window.history.replaceState(null, "", `?seed=${next}${window.location.hash}`);
+      setSeed(next);
+    };
+    journey.download = async () => {
+      // The current view as a standalone SVG (white page, like the original), every band at its own parallax offset.
+      const view = vwUnits;
+      const inView = metaRef.current.filter((m) => {
+        const x0 = frame.camX * BAND_FACTOR[m.band];
+        return m.x + m.hw * 1.15 + 80 > x0 && m.x - m.hw * 1.15 - 80 < x0 + view;
+      });
+      const svgs = await world.svgs(inView.map((m) => m.id));
+      const body = BANDS.map(
+        (b) => `<g transform="translate(${-(frame.camX * BAND_FACTOR[b]).toFixed(1)},0)">${inView.filter((m) => m.band === b).map((m) => svgs[m.id]).join("")}</g>`,
+      ).join("");
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${view}" height="${WORLD_H}" viewBox="0 0 ${view} ${WORLD_H}"><rect width="100%" height="100%" fill="#fff"/>${body}</svg>`;
+      const a = Object.assign(document.createElement("a"), {
+        href: URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" })),
+        download: `shan-shui-${seed}-${Math.round(frame.camX)}.svg`,
+      });
+      a.click();
+      URL.revokeObjectURL(a.href);
+    };
+
     // Keyboard focus can land on an off-screen station: bring the camera to it instead of letting overflow scroll.
     const stage = stageRef.current;
     const onFocusIn = (e: FocusEvent) => {
-      if (stage) (stage.scrollLeft = 0, (stage.scrollTop = 0));
+      if (stage) {
+        stage.scrollLeft = 0;
+        stage.scrollTop = 0;
+      }
       const el = (e.target as HTMLElement).closest<HTMLElement>("[data-focus]");
       const id = el?.dataset.focus;
       const i = FOCUSES.findIndex((f) => f.id === id);
       if (i >= 0 && i !== lastFocus) goTo.current(i);
     };
-    nearRef.current?.addEventListener("focusin", onFocusIn);
+    const near = nearRef.current;
+    near?.addEventListener("focusin", onFocusIn);
 
     // jump to a station named in the URL hash, e.g. /#projects
     const hash = window.location.hash.slice(1);
@@ -228,13 +288,22 @@ export default function Stage({ children }: { children: ReactNode }) {
       gsap.ticker.remove(tick);
       lenis?.destroy();
       window.removeEventListener("pointermove", onPointer);
-      nearRef.current?.removeEventListener("focusin", onFocusIn);
+      near?.removeEventListener("focusin", onFocusIn);
       segEls.forEach((el) => el.remove());
       world.dispose();
       worldRef.current = null;
     };
     // The world is rebuilt when the viewport scale changes; cheap (plan ~50 ms) and keeps one code path.
-  }, [camera, scrollLen, s, vwUnits, dims.vw, dims.dpr]);
+  }, [camera, scrollLen, s, vwUnits, dims.vw, dims.vh, dims.dpr, seed]);
+
+  // Highlight copy of the peak the camera rests on (or the pointer is over): same strokes drawn again, darker, with a glow.
+  useEffect(() => {
+    const w = worldRef.current;
+    if (glow < 0 || !w) return setGlowSvg(null);
+    let live = true;
+    w.svgs([`peak-${glow}`]).then((r) => live && setGlowSvg({ i: glow, svg: r[`peak-${glow}`] }));
+    return () => void (live = false);
+  }, [glow, seed, dims.vw]);
 
   const bandStyle = (b: Band): CSSProperties => ({ zIndex: BANDS.indexOf(b) * 2 + 2 });
   const hostRef = useCallback(
@@ -249,14 +318,33 @@ export default function Stage({ children }: { children: ReactNode }) {
       <div ref={stageRef} className="stage" style={{ ["--s" as string]: s, ["--world-w" as string]: WORLD_W }}>
         <div className="sky" aria-hidden />
         <div ref={sunRef} className="sun" aria-hidden />
+        <Birds />
 
         {BANDS.map((b) => (
           <div key={b} aria-hidden>
             <div ref={(el) => void (bandEls.current[b] = el)} className={`band band-${b}`} style={bandStyle(b)}>
               <div ref={hostRef(b)} className="band-segs" />
+              {b === "near" && glowSvg && glowSvg.i === glow && (() => {
+                const pk = projectPeaks[glowSvg.i];
+                const hw = (pk.featured ? 235 : 170) + 50;
+                return (
+                  <svg
+                    key={glowSvg.i}
+                    className="peak-glow"
+                    style={{ left: (pk.x - hw) * s, width: hw * 2 * s, height: WORLD_H * s }}
+                    viewBox={`${pk.x - hw} 0 ${hw * 2} ${WORLD_H}`}
+                    dangerouslySetInnerHTML={{ __html: glowSvg.svg }}
+                  />
+                );
+              })()}
               {live
-                .filter((l) => l.meta.band === b)
-                .map(({ meta: m, svg }, i) => (
+                .filter((l) => {
+                  if (l.meta.band !== b) return false;
+                  // only mount live entities near the viewport (keeps the DOM small)
+                  const x0 = liveBucket * 250 * BAND_FACTOR[b];
+                  return l.meta.x + l.meta.hw > x0 - 500 && l.meta.x - l.meta.hw < x0 + vwUnits + 900;
+                })
+                .map(({ meta: m, svg }) => (
                   <svg
                     key={m.id}
                     className={`live live-${m.kind}`}
@@ -265,7 +353,7 @@ export default function Stage({ children }: { children: ReactNode }) {
                       width: m.hw * 2 * s,
                       height: WORLD_H * s,
                       transformOrigin: `50% ${(m.y / WORLD_H) * 100}%`,
-                      ["--d" as string]: `${-(i * 1.37) % 7}s`,
+                      ["--d" as string]: `${-((m.x * 0.013) % 7)}s`,
                     }}
                     viewBox={`${m.x - m.hw} 0 ${m.hw * 2} ${WORLD_H}`}
                     dangerouslySetInnerHTML={{ __html: svg }}

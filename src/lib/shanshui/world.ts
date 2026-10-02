@@ -114,8 +114,8 @@ export function planWorld(seed: number, quality: Quality = 2): Planned[] {
 
   // ── NEAR: stations. Everything the HTML overlays point at lives here (factor 1). ──
   const hero = stationById("hero").x;
-  mount("near", "hero-l", hero - 520, 575, 300, 440);
-  mount("near", "hero-r", hero + 560, 580, 250, 400);
+  mount("near", "hero-l", hero - 600, 575, 390, 500);
+  mount("near", "hero-r", hero + 640, 580, 350, 460);
   mount("near", "gap-hero-about", 1950, 580, 210, 380);
   flat("near", "gap-hero-about-flat", 1850, 690, 700);
 

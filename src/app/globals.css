@@ -14,7 +14,7 @@
   --line: rgba(29, 26, 22, 0.16);
   --seal: #b4161f;
   --seal-soft: rgba(180, 22, 31, 0.1);
-  --plaque: rgba(244, 236, 215, 0.82);
+  --plaque: rgba(244, 236, 215, 0.9);
   --gold: #8a6a3b;
   --grain: 0.5;
 }
@@ -29,7 +29,7 @@
   --line: rgba(236, 228, 207, 0.16);
   --seal: #e0453f;
   --seal-soft: rgba(224, 69, 63, 0.14);
-  --plaque: rgba(14, 17, 21, 0.78);
+  --plaque: rgba(14, 17, 21, 0.88);
   --gold: #c4a46a;
   --grain: 0.25;
 }
@@ -67,11 +67,7 @@ body::before {
   z-index: 900;
   pointer-events: none;
   opacity: var(--grain);
-  mix-blend-mode: multiply;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.4  0 0 0 0 0.33  0 0 0 0 0.2  0 0 0 0.09 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-}
-[data-theme="ink"] body::before {
-  mix-blend-mode: screen;
 }
 
 ::selection {
@@ -101,12 +97,12 @@ body::before {
   left: 0;
   top: 0;
   z-index: 1;
-  width: clamp(56px, 7vw, 112px);
+  width: clamp(44px, 5.5vw, 88px);
   aspect-ratio: 1;
-  margin: calc(clamp(56px, 7vw, 112px) / -2) 0 0 calc(clamp(56px, 7vw, 112px) / -2);
+  margin: calc(clamp(44px, 5.5vw, 88px) / -2) 0 0 calc(clamp(44px, 5.5vw, 88px) / -2);
   border-radius: 50%;
   background: radial-gradient(circle at 38% 36%, color-mix(in srgb, var(--seal) 92%, white), var(--seal) 70%);
-  opacity: 0.82;
+  opacity: 0.7;
   mix-blend-mode: multiply;
   will-change: transform;
 }
@@ -140,6 +136,17 @@ body::before {
 .band-mid .band-segs { filter: blur(0.25px); }
 
 .live { position: absolute; top: 0; overflow: visible; pointer-events: none; }
+.peak-glow {
+  position: absolute;
+  top: 0;
+  overflow: visible;
+  pointer-events: none;
+  animation: glow-in 0.9s ease both;
+  filter: drop-shadow(0 0 7px color-mix(in srgb, var(--seal) 38%, transparent));
+}
+@keyframes glow-in { from { opacity: 0; } to { opacity: 0.9; } }
+.stage .band { transition: opacity 0.7s ease; }
+.stage.swap .band { opacity: 0; }
 .live-tree { animation: sway 7s ease-in-out infinite alternate; animation-delay: var(--d); }
 .live-boat { animation: drift 17s ease-in-out infinite alternate; animation-delay: var(--d); }
 @keyframes sway {

@@ -1,104 +1,33 @@
 "use client";
 import { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useJourney } from "@/lib/journey";
 
+/** Ink-grinding loader: an enso draws itself while the worker bakes the first screen of painting. */
 export default function Intro() {
-  const [done, setDone] = useState(false);
+  const ready = useJourney((s) => s.ready);
+  const [minDone, setMinDone] = useState(false);
+  const [gone, setGone] = useState(false);
+  const show = !(ready && minDone);
 
   useEffect(() => {
-    const t = setTimeout(() => setDone(true), 2200);
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const t = setTimeout(() => setMinDone(true), reduced ? 0 : 1500);
     return () => clearTimeout(t);
   }, []);
+  useEffect(() => {
+    if (show) return;
+    document.documentElement.dataset.ready = "1";
+    const t = setTimeout(() => setGone(true), 900);
+    return () => clearTimeout(t);
+  }, [show]);
 
+  if (gone) return null;
   return (
-    <AnimatePresence>
-      {!done && (
-        <motion.div
-          className="fixed inset-0 z-[9999] flex items-center justify-center"
-          style={{ background: "var(--ink)" }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.6, ease: "easeInOut", delay: 0.1 }}
-        >
-          {/* Top curtain */}
-          <motion.div
-            className="absolute inset-x-0 top-0"
-            style={{ background: "var(--ink)", height: "50%", originY: 0 }}
-            initial={{ scaleY: 1 }}
-            animate={{ scaleY: 0 }}
-            transition={{ duration: 0.7, ease: [0.76, 0, 0.24, 1], delay: 1.3 }}
-          />
-          {/* Bottom curtain */}
-          <motion.div
-            className="absolute inset-x-0 bottom-0"
-            style={{ background: "var(--ink)", height: "50%", originY: 1 }}
-            initial={{ scaleY: 1 }}
-            animate={{ scaleY: 0 }}
-            transition={{ duration: 0.7, ease: [0.76, 0, 0.24, 1], delay: 1.3 }}
-          />
-
-          {/* Center stamp */}
-          <div className="relative flex flex-col items-center gap-4">
-            <motion.div
-              initial={{ scale: 1.6, opacity: 0, rotate: -8 }}
-              animate={{ scale: 1, opacity: 1, rotate: 0 }}
-              transition={{ duration: 0.5, ease: [0.34, 1.56, 0.64, 1], delay: 0.3 }}
-              className="relative"
-            >
-              {/* Red seal box */}
-              <div
-                className="w-24 h-24 flex items-center justify-center border-2"
-                style={{ borderColor: "var(--crimson)", background: "var(--crimson-dim)" }}
-              >
-                <span
-                  className="text-5xl font-bold select-none"
-                  style={{
-                    fontFamily: "'Shippori Mincho B1', serif",
-                    color: "var(--crimson)",
-                    textShadow: "0 0 20px rgba(191,10,42,0.5)",
-                  }}
-                >
-                  武
-                </span>
-              </div>
-              {/* Stamp ring ripple */}
-              <motion.div
-                className="absolute inset-0 border-2"
-                style={{ borderColor: "var(--crimson)" }}
-                initial={{ scale: 1, opacity: 0.8 }}
-                animate={{ scale: 2.2, opacity: 0 }}
-                transition={{ duration: 0.8, ease: "easeOut", delay: 0.5 }}
-              />
-            </motion.div>
-
-            <motion.p
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 0.35, y: 0 }}
-              transition={{ delay: 0.7, duration: 0.5 }}
-              className="mono text-[10px] tracking-[0.4em] uppercase"
-              style={{ color: "var(--paper)" }}
-            >
-              Ruchit Das
-            </motion.p>
-          </div>
-
-          {/* Horizontal lines that sweep in */}
-          {[0.4, 0.55, 0.7].map((delay, i) => (
-            <motion.div
-              key={i}
-              className="absolute left-0 right-0"
-              style={{
-                top: `${30 + i * 20}%`,
-                height: "0.5px",
-                background: "var(--line)",
-                originX: i % 2 === 0 ? 0 : 1,
-              }}
-              initial={{ scaleX: 0 }}
-              animate={{ scaleX: 1 }}
-              transition={{ duration: 0.6, ease: "easeOut", delay }}
-            />
-          ))}
-        </motion.div>
-      )}
-    </AnimatePresence>
+    <div className={`intro${show ? "" : " out"}`} aria-hidden={!show} role="status">
+      <svg viewBox="0 0 120 120" width="120" height="120" aria-hidden>
+        <circle className="enso" cx="60" cy="60" r="44" />
+      </svg>
+      <p className="mono">山水 · loading the scroll</p>
+    </div>
   );
 }

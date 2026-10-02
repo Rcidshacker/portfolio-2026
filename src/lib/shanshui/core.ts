@@ -58,7 +58,11 @@ export class WorldCore {
   }
 
   meta(): EntityMeta[] {
-    return this.plan.map(({ render, ...m }) => m);
+    return this.plan.map((p) => {
+      const m: Partial<Planned> = { ...p };
+      delete m.render;
+      return m as EntityMeta;
+    });
   }
 
   private svgOf(p: Planned) {

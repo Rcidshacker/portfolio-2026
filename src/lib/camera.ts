@@ -1,9 +1,9 @@
 import { STATIONS, WORLD_H, WORLD_W, projectPeaks } from "./stations";
 
 /** Scroll pixels per screen pixel of near-band travel. <1 means the painting moves faster than the page scrolls. */
-export const SCROLL_RATIO = 0.55;
+export const SCROLL_RATIO = 0.42;
 /** Time spent holding on each stop, in world units of travel. */
-const DWELL = 650;
+const DWELL = 480;
 
 export interface Focus {
   id: string;

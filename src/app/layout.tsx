@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Noto_Sans_JP, IBM_Plex_Mono, Shippori_Mincho_B1 } from "next/font/google";
 import "./globals.css";
+import "./stations.css";
 
 const notoSans = Noto_Sans_JP({ subsets: ["latin"], variable: "--font-noto", weight: ["300", "400", "500"], display: "swap" });
 const ibmMono = IBM_Plex_Mono({ subsets: ["latin"], variable: "--font-mono", weight: ["300", "400", "500"], display: "swap" });
