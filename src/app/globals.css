@@ -55,7 +55,7 @@ body {
   transition: background-color 0.9s ease, color 0.9s ease;
 }
 h1, h2, h3, h4 {
-  font-family: var(--font-mincho), "Shippori Mincho B1", serif;
+  font-family: var(--font-mincho), "Kaisei Tokumin", serif;
   color: var(--ink);
   letter-spacing: -0.01em;
 }

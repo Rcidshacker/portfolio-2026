@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Source_Sans_3, IBM_Plex_Mono, Shippori_Mincho_B1 } from "next/font/google";
+import { Source_Sans_3, IBM_Plex_Mono, Kaisei_Tokumin } from "next/font/google";
 import "./globals.css";
 import "./stations.css";
 import "./panels.css";
@@ -9,7 +9,7 @@ import "./panels.css";
 // fetched on demand (preload: false) instead of all being preloaded, and only the weights the CSS uses.
 const sans = Source_Sans_3({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
 const ibmMono = IBM_Plex_Mono({ subsets: ["latin"], variable: "--font-mono", weight: ["300", "400", "500"], display: "swap" });
-const mincho = Shippori_Mincho_B1({ subsets: ["latin"], variable: "--font-mincho", weight: ["400", "700"], display: "swap", preload: false });
+const mincho = Kaisei_Tokumin({ subsets: ["latin"], variable: "--font-mincho", weight: ["400", "700"], display: "swap", preload: false });
 
 export const metadata: Metadata = {
   title: "Ruchit Das — AI Engineer",
