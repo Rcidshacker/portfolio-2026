@@ -106,7 +106,8 @@
 }
 .inscription p {
   font-family: var(--font-mincho), serif;
-  font-size: clamp(1.02rem, 2.6svh, 1.5rem);
+  /* the vw term only bites on phones, where height alone made the text too big to fit */
+  font-size: clamp(0.9rem, min(2.6svh, 4.2vw), 1.5rem);
   line-height: 1.72;
   margin: 0 0 1rem;
   color: var(--ink);
@@ -154,6 +155,8 @@
   .nav-links.open { opacity: 1; pointer-events: auto; }
   .nav-links a { font-size: 0.9rem; }
   .menu-btn { display: grid; }
+  .inscription { padding-left: 1rem; }
+  .inscription p { line-height: 1.6; margin-bottom: 0.75rem; }
 }
 
 .ruler { position: fixed; left: 50%; bottom: 1rem; z-index: 90; width: min(560px, 78vw); transform: translateX(-50%); }
