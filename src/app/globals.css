@@ -167,7 +167,6 @@ body::before {
     radial-gradient(60% 100% at 18% 50%, var(--paper) 0%, transparent 70%),
     radial-gradient(50% 100% at 70% 40%, var(--paper) 0%, transparent 70%);
   opacity: 0.62;
-  filter: blur(14px);
   animation: mist-drift 46s ease-in-out infinite alternate;
 }
 .mist-a { top: 30%; }
