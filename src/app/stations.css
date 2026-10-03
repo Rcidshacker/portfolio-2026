@@ -209,8 +209,7 @@ a:focus-visible, button:focus-visible { outline: 2px solid var(--seal); outline-
   to { transform: translate(118vw, 8px); }
 }
 @keyframes flap { from { transform: scaleY(1); } to { transform: scaleY(0.3); } }
-.petals { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 60; pointer-events: none; opacity: 0; transition: opacity 0.8s ease; }
-.petals.on { opacity: 1; }
+.petals { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 60; pointer-events: none; }
 
 @media (prefers-reduced-motion: reduce) { .bird, .bird path { animation: none; } .bird { display: none; } }
 
