@@ -80,7 +80,7 @@ export default function Stage({ children }: { children: ReactNode }) {
     world.meta.then(async (meta) => {
       const ids = meta.filter((m) => m.live).map((m) => m.id);
       const svgs = await world.svgs(ids);
-      if (alive) setLive(meta.filter((m) => m.live).map((m) => ({ meta: m, svg: svgs[m.id] })));
+      if (alive) setLive(meta.filter((m) => m.live).map((m) => ({ meta: m, svg: svgs[m.id].replaceAll("fill:white", "fill:var(--live-fill)") })));
     });
 
     frame.scale = s;
@@ -142,10 +142,12 @@ export default function Stage({ children }: { children: ReactNode }) {
 
     const ensureSegments = () => {
       const wanted = new Set<string>();
+      // once the first screen is up, bake further ahead so travelling never waits on a segment
+      const margin = settled ? 800 : 300;
       for (const b of BANDS) {
         const x0 = frame.camX * BAND_FACTOR[b];
-        const a = Math.floor((x0 - 300) / SEG);
-        const z = Math.floor((x0 + vwUnits + 300) / SEG);
+        const a = Math.floor((x0 - margin) / SEG);
+        const z = Math.floor((x0 + vwUnits + margin) / SEG);
         for (let seg = Math.max(0, a); seg <= z; seg++) {
           const key = `${b}:${seg}`;
           wanted.add(key);
@@ -343,7 +345,7 @@ export default function Stage({ children }: { children: ReactNode }) {
     const w = worldRef.current;
     if (glow < 0 || !w) return setGlowSvg(null);
     let live = true;
-    w.svgs([`peak-${glow}`]).then((r) => live && setGlowSvg({ i: glow, svg: r[`peak-${glow}`] }));
+    w.svgs([`peak-${glow}`]).then((r) => live && setGlowSvg({ i: glow, svg: r[`peak-${glow}`].replaceAll("fill:white", "fill:var(--live-fill)") }));
     return () => void (live = false);
   }, [glow, seed, dims.vw]);
 

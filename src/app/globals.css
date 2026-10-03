@@ -18,6 +18,7 @@
   --plaque-solid: rgba(244, 236, 215, 0.97);
   --gold: #8a6a3b;
   --grain: 0.5;
+  --live-fill: var(--paper);
 }
 [data-theme="ink"] {
   --paper: #0c0e11;
@@ -34,6 +35,7 @@
   --plaque-solid: rgba(14, 17, 21, 0.97);
   --gold: #c4a46a;
   --grain: 0.25;
+  --live-fill: #fff; /* the band is inverted, so white becomes the night paper */
 }
 
 html {
@@ -105,13 +107,11 @@ body::before {
   border-radius: 50%;
   background: radial-gradient(circle at 38% 36%, color-mix(in srgb, var(--seal) 92%, white), var(--seal) 70%);
   opacity: 0.7;
-  mix-blend-mode: multiply;
   will-change: transform;
 }
 [data-theme="ink"] .sun {
   background: radial-gradient(circle at 38% 36%, #fdf6dc, #cfc6a8 72%);
   opacity: 0.9;
-  mix-blend-mode: screen;
   box-shadow: 0 0 80px 18px rgba(236, 228, 207, 0.16);
 }
 
@@ -122,11 +122,9 @@ body::before {
   height: 100%;
   width: 0;
   will-change: transform;
-  mix-blend-mode: multiply;
 }
 .band-segs { position: absolute; inset: 0; }
 [data-theme="ink"] .band {
-  mix-blend-mode: screen;
   filter: invert(1);
 }
 /* distant ridges dissolve into the mist */
@@ -134,8 +132,7 @@ body::before {
   -webkit-mask-image: linear-gradient(to bottom, #000 0, #000 46%, transparent 62%);
   mask-image: linear-gradient(to bottom, #000 0, #000 46%, transparent 62%);
 }
-.band-far .band-segs { filter: blur(0.6px); opacity: 0.85; }
-.band-mid .band-segs { filter: blur(0.25px); }
+.band-far .band-segs { opacity: 0.85; }
 
 .live { position: absolute; top: 0; overflow: visible; pointer-events: none; }
 .peak-glow {

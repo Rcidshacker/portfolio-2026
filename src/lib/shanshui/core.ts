@@ -85,7 +85,12 @@ export class WorldCore {
     const h = Math.ceil(WORLD_H * scale);
     const useOffscreen = typeof OffscreenCanvas !== "undefined";
     const cvs = useOffscreen ? new OffscreenCanvas(w, h) : Object.assign(document.createElement("canvas"), { width: w, height: h });
-    const ctx = cvs.getContext("2d") as Ctx;
+    const ctx = cvs.getContext("2d", { willReadFrequently: true }) as Ctx;
+    // Draw on paper white (the engine's white fills hide strokes behind them inside one band), then turn
+    // "ink on white" into black-with-alpha. That is exactly what mix-blend-mode: multiply did at runtime,
+    // but baked once, so the compositor only has to alpha-blend four plain layers per frame.
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, w, h);
     ctx.setTransform(scale, 0, 0, scale, -x0 * scale, 0);
     for (const p of this.plan) {
       if (p.band !== band || p.live) continue;
@@ -93,6 +98,15 @@ export class WorldCore {
       if (p.x + r < x0 || p.x - r > x0 + SEG + 2 * PAD) continue;
       drawSvg(ctx, this.svgOf(p));
     }
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    const img = ctx.getImageData(0, 0, w, h);
+    const d = img.data;
+    for (let i = 0; i < d.length; i += 4) {
+      const m = Math.min(d[i], d[i + 1], d[i + 2]);
+      d[i] = d[i + 1] = d[i + 2] = 0;
+      d[i + 3] = 255 - m;
+    }
+    ctx.putImageData(img, 0, 0);
     return useOffscreen ? (cvs as OffscreenCanvas).transferToImageBitmap() : (cvs as HTMLCanvasElement);
   }
 }
